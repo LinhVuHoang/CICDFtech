@@ -1,24 +1,32 @@
 # Student Performance Prediction
 
-A Machine Learning project that predicts students' mathematics scores based on demographic information, parental education, lunch type, test preparation status, and reading and writing scores.
+An end-to-end Machine Learning project for predicting students' mathematics scores based on demographic information, parental education, lunch type, test preparation status, and reading and writing scores.
 
-The project covers the end-to-end ML workflow, including data ingestion, preprocessing, model training, hyperparameter tuning, model evaluation, API development, containerization, CI/CD automation, and Canary Deployment with Kubernetes and Argo Rollouts.
+The project explores the complete ML engineering workflow, from data ingestion and preprocessing to model training, API development, containerization, CI/CD automation, Kubernetes deployment, Canary releases, and centralized secrets management.
 
 **Project Status:** Experimental / Learning Project
 
 ## 1. Project Overview
 
-This project aims to build and deploy a regression-based Machine Learning application for predicting students' mathematics performance.
+This project aims to develop and deploy a regression-based Machine Learning application to predict students' mathematics performance.
 
-The application accepts student information through a web interface, processes the input using a trained preprocessing pipeline, and generates a predicted mathematics score.
+Users can submit student information through a web interface. The application processes the input using a fitted preprocessing pipeline and generates a predicted mathematics score.
 
-The project also explores deployment automation through Docker, GitHub Actions, Kubernetes, and Argo Rollouts.
+Beyond model development, the project explores practical ML engineering and DevOps concepts:
+
+- Modular Machine Learning pipelines.
+- Model training and hyperparameter optimization.
+- REST API development with FastAPI.
+- Docker-based application packaging.
+- CI/CD automation using GitHub Actions.
+- Kubernetes deployment and Canary releases with Argo Rollouts.
+- Centralized secrets management using HashiCorp Vault and External Secrets Operator (ESO).
 
 ## 2. System Architecture
 
-The project consists of three main workflows:
+The project consists of four main workflows.
 
-### Machine Learning Pipeline
+### 2.1 Machine Learning Pipeline
 
 ```text
 Raw Dataset
@@ -48,7 +56,7 @@ Best Model Selection
 Model.pkl + Preprocessor.pkl
 ```
 
-### Prediction Pipeline
+### 2.2 Prediction Pipeline
 
 ```text
 User Input
@@ -78,7 +86,7 @@ Generate Prediction
 Display Predicted Mathematics Score
 ```
 
-### CI/CD and Deployment Pipeline
+### 2.3 CI/CD and Deployment Pipeline
 
 ```text
 GitHub Push / Pull Request
@@ -118,45 +126,84 @@ GitHub Push / Pull Request
      20% -> 50% -> 100%
 ```
 
+### 2.4 Secrets Management Architecture
+
+```text
+HashiCorp Vault
+       |
+       v
+External Secrets Operator (ESO)
+       |
+       v
+Kubernetes Secret
+       |
+       v
+Application Pod
+       |
+       v
+Environment Variable
+       |
+       v
+    SECRET_KEY
+```
+
+External Secrets Operator retrieves secrets from HashiCorp Vault and synchronizes them into Kubernetes Secrets. The application consumes the required configuration through Kubernetes environment variables.
+
 ## 3. Machine Learning Workflow
 
 ### 3.1 Data Ingestion
 
+The data ingestion component is responsible for loading and preparing the dataset.
+
+Main operations:
+
 - Load the student performance dataset from CSV.
-- Store a copy of the raw dataset.
+- Store a copy of the original dataset.
 - Split the dataset into training and testing sets.
 - Use an 80/20 split with `random_state=42`.
 - Save the resulting datasets as CSV files.
 
+Generated files:
+
+- `Raw_Data.csv`
+- `Train_Data.csv`
+- `Test_Data.csv`
+
 ### 3.2 Data Transformation
 
-The preprocessing pipeline uses Scikit-learn's `ColumnTransformer` and `Pipeline`.
+The preprocessing workflow uses Scikit-learn's `ColumnTransformer` and `Pipeline` to handle numerical and categorical features independently.
 
 **Numerical features:**
+
 - `reading_score`
 - `writing_score`
 
-Preprocessing:
-- Median imputation using `SimpleImputer`.
-- Feature scaling using `StandardScaler`.
+Preprocessing steps:
+
+1. Median imputation using `SimpleImputer`.
+2. Feature scaling using `StandardScaler`.
 
 **Categorical features:**
+
 - `gender`
 - `race_ethnicity`
 - `parental_level_of_education`
 - `lunch`
 - `test_preparation_course`
 
-Preprocessing:
-- Most frequent value imputation.
-- One-hot encoding.
-- Standard scaling with `with_mean=False`.
+Preprocessing steps:
+
+1. Most frequent value imputation.
+2. One-hot encoding using `OneHotEncoder`.
+3. Feature scaling using `StandardScaler(with_mean=False)`.
 
 The preprocessing object is fitted on the training dataset and reused to transform the testing dataset and new prediction inputs.
 
 The target variable is `math_score`.
 
-### 3.3 Model Training and Evaluation
+The fitted preprocessing pipeline is serialized using Joblib and saved as `Preprocessor.pkl`.
+
+### 3.3 Model Training and Hyperparameter Optimization
 
 The project experiments with six regression algorithms:
 
@@ -173,18 +220,26 @@ The project experiments with six regression algorithms:
 
 `GridSearchCV` with 3-fold cross-validation is used to search for suitable hyperparameters for each model.
 
+The training workflow:
+
+1. Initialize the candidate regression models.
+2. Define hyperparameter search spaces.
+3. Perform cross-validation using GridSearchCV.
+4. Retrieve the best hyperparameters for each model.
+5. Fit each model using the training dataset.
+6. Evaluate model performance using R².
+7. Select the model with the highest test-set R² score.
+8. Save the selected model if its R² score is at least 0.6.
+
 **Model Evaluation**
 
-- Evaluate model performance using the R² score.
-- Compare the regression models.
-- Select the model with the highest test-set R² score.
-- Require a minimum R² score of 0.6 before saving the selected model.
+The project uses the R² score to compare regression model performance on the training and testing datasets.
 
-The selected model and preprocessing object are serialized using Joblib.
+The current implementation selects the best model using test-set R². Using a separate validation strategy for model selection and reserving the test set for final evaluation is a planned improvement.
 
 ### 3.4 Model Artifacts
 
-Generated artifacts:
+The project stores the generated datasets and trained ML artifacts in the `Artifacts/` directory.
 
 | File | Description |
 |---|---|
@@ -194,20 +249,23 @@ Generated artifacts:
 | `Model.pkl` | Selected trained regression model |
 | `Preprocessor.pkl` | Fitted preprocessing pipeline |
 
+Joblib is used to serialize and load the model and preprocessing objects.
+
 ## 4. API Development
 
-The prediction application is built with FastAPI.
+The prediction application is developed using FastAPI.
 
 **Available endpoints:**
 
 | Method | Endpoint | Description |
 |---|---|---|
-| GET | `/` | API availability message |
-| GET | `/health` | Health check endpoint |
-| GET | `/secure` | Checks SECRET_KEY configuration |
+| GET | `/` | Returns an API availability message |
+| GET | `/health` | Returns application health status |
+| GET | `/secure` | Checks SECRET_KEY configuration and returns a SHA-256 signature |
 | POST | `/` | Accepts student information and returns a prediction through the HTML interface |
 
-The prediction endpoint accepts:
+**Prediction input features:**
+
 - Gender
 - Race/ethnicity
 - Parental level of education
@@ -216,29 +274,45 @@ The prediction endpoint accepts:
 - Reading score
 - Writing score
 
-The application converts the input into a Pandas DataFrame, applies the saved preprocessing pipeline, and generates a mathematics score prediction.
+**Prediction workflow:**
+
+1. Receive student information through an HTML form.
+2. Convert the input into a Pandas DataFrame using `CustomData`.
+3. Load the fitted preprocessing pipeline.
+4. Transform the input features.
+5. Load the trained regression model.
+6. Generate the predicted mathematics score.
+7. Render the prediction result using the HTML template.
+
+The application uses Jinja2 templates and static CSS assets for its web interface.
 
 ## 5. CI/CD Automation
 
-GitHub Actions automates the application validation and Docker image delivery workflow.
+GitHub Actions automates application validation, Docker image building, and image delivery.
 
-The workflow includes:
+The configured workflow includes:
 
-1. Triggering on pushes and pull requests targeting the `master` branch.
-2. Setting up Python 3.10.
-3. Installing project dependencies.
-4. Starting the FastAPI application.
-5. Checking API availability.
-6. Sending a sample prediction request.
-7. Running Flake8 for linting.
-8. Building a Docker image.
-9. Pushing the image to Docker Hub.
-10. Updating the image tag in the Kubernetes Rollout manifest.
-11. Committing and pushing the updated manifest.
+1. Trigger on pushes and pull requests targeting the `master` branch.
+2. Set up Python 3.10.
+3. Install project dependencies.
+4. Start the FastAPI application.
+5. Check API availability.
+6. Send a sample prediction request.
+7. Run Flake8 for linting.
+8. Build a Docker image.
+9. Push the image to Docker Hub.
+10. Update the image tag in the Kubernetes Rollout manifest.
+11. Commit and push the updated manifest.
 
-Docker image tags use the Git commit SHA to identify individual builds.
+**Docker Image Versioning**
 
-Docker Hub credentials are configured through GitHub Actions Secrets.
+Docker images are tagged using the Git commit SHA, allowing individual builds to be identified by their source revision.
+
+**GitHub Actions Secrets**
+
+Docker Hub credentials are configured through GitHub Actions Secrets rather than being hardcoded in the workflow.
+
+The workflow also updates the Kubernetes manifest with the newly built image tag.
 
 ## 6. Kubernetes and Canary Deployment
 
@@ -249,8 +323,8 @@ The project uses Kubernetes and Argo Rollouts to define a Canary Deployment stra
 | File | Purpose |
 |---|---|
 | `rollout.yaml` | Defines the application Rollout and Canary strategy |
-| `service.yaml` | Stable application Service |
-| `canary-service.yaml` | Canary application Service |
+| `service.yaml` | Defines the stable application Service |
+| `canary-service.yaml` | Defines the Canary application Service |
 | `analysis-template.yaml` | Defines deployment health analysis |
 
 **Canary rollout strategy:**
@@ -274,11 +348,64 @@ New Version Deployment
     100% Traffic
 ```
 
-The AnalysisTemplate performs an HTTP health check against the Canary Service's `/health` endpoint.
+The Rollout configuration defines progressive traffic weights:
 
-The rollout proceeds through the configured traffic weights when the analysis succeeds.
+- 20% traffic to the Canary version.
+- Health check through an AnalysisTemplate.
+- 50% traffic to the Canary version.
+- Another health check.
+- 100% traffic to the new version.
 
-## 7. Technology Stack
+**Health Analysis**
+
+The AnalysisTemplate performs an HTTP health check against the Canary Service:
+
+```text
+http://student-performance-canary.default.svc.cluster.local:8000/health
+```
+
+The analysis succeeds when the endpoint returns HTTP status 200.
+
+This provides a basic deployment health validation before progressing through the configured rollout steps.
+
+## 7. Secrets Management
+
+The project uses HashiCorp Vault and External Secrets Operator (ESO) to manage application secrets.
+
+**Secrets management workflow:**
+
+1. Store sensitive configuration in HashiCorp Vault.
+2. Configure External Secrets Operator to retrieve secrets from Vault.
+3. Synchronize the retrieved values into Kubernetes Secrets.
+4. Inject the required secret into the application container through Kubernetes environment variables.
+5. Access the configuration inside the application using `os.getenv()`.
+
+For example, the FastAPI application retrieves its secret through:
+
+```python
+SECRET_KEY = os.getenv("SECRET_KEY")
+```
+
+The Kubernetes Rollout references the generated Kubernetes Secret:
+
+```yaml
+env:
+  - name: SECRET_KEY
+    valueFrom:
+      secretKeyRef:
+        name: student-performance-secret
+        key: SECRET_KEY
+```
+
+**Technologies:**
+
+- HashiCorp Vault
+- External Secrets Operator (ESO)
+- Kubernetes Secrets
+
+This approach separates sensitive application configuration from source code and deployment manifests while providing centralized secrets management.
+
+## 8. Technology Stack
 
 | Category | Technologies |
 |---|---|
@@ -293,9 +420,10 @@ The rollout proceeds through the configured traffic weights when the analysis su
 | CI/CD | GitHub Actions |
 | Container Orchestration | Kubernetes |
 | Progressive Delivery | Argo Rollouts |
+| Secrets Management | HashiCorp Vault, External Secrets Operator |
 | Code Quality | Flake8 |
 
-## 8. Project Structure
+## 9. Project Structure
 
 ```text
 Student-Performance-Prediction/
@@ -350,37 +478,43 @@ Student-Performance-Prediction/
 |-- README.md
 ```
 
-## 9. Key Engineering Concepts
+## 10. Key Engineering Concepts
 
 This project demonstrates practical experience with:
 
 - Designing modular Machine Learning pipelines.
 - Building numerical and categorical preprocessing workflows.
-- Performing hyperparameter optimization and model comparison.
+- Performing cross-validation and hyperparameter optimization.
+- Comparing regression algorithms using evaluation metrics.
 - Serializing and reusing trained ML artifacts.
 - Developing prediction APIs with FastAPI.
 - Packaging ML applications with Docker.
 - Automating validation and image delivery with GitHub Actions.
-- Defining Kubernetes deployment resources.
-- Exploring progressive delivery through Canary Deployment and health analysis.
+- Managing Kubernetes application deployments.
+- Exploring progressive delivery through Canary Deployment.
+- Implementing deployment health checks with Argo Rollouts.
+- Managing application secrets with HashiCorp Vault and External Secrets Operator.
+- Injecting secrets into application containers through Kubernetes Secrets.
 
-## 10. Future Improvements
+## 11. Future Improvements
 
 Potential improvements include:
 
-- Introduce a separate validation dataset for model selection.
+- Introduce a separate validation strategy for model selection.
 - Optimize model loading and reuse in the API.
 - Add automated unit and integration tests.
 - Separate CI validation from CD deployment.
 - Add model performance monitoring and prediction logging.
 - Improve health checks to verify model readiness.
-- Add automated rollback and deployment observability.
+- Add deployment observability and automated rollback.
 - Introduce model versioning and experiment tracking.
+- Improve API input validation and error handling.
+- Add automated secret rotation and synchronization validation.
 
-## 11. Project Status
+## 12. Project Status
 
-This is an experimental learning project developed to explore an end-to-end Machine Learning deployment workflow.
+This is an experimental learning project developed to explore an end-to-end Machine Learning engineering and deployment workflow.
 
-The Kubernetes manifests define a Canary Deployment strategy, while the GitHub Actions workflow automates Docker image building and manifest updates.
+The project includes modular ML pipelines, a FastAPI prediction application, Docker-based packaging, GitHub Actions automation, Kubernetes deployment manifests, Canary rollout configuration, and centralized secrets management.
 
-The project is not presented as a production-ready ML platform.
+The deployment and security components demonstrate practical exploration of MLOps and DevOps concepts. The project is not presented as a production-ready ML platform.
