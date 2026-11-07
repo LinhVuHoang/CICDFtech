@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
         - name: student-performance
-          image: xenolinhhv/student-performance-prediction:86cc49f8fe7ac1cd7bba2e52f73d093f7d9b1ba5
+          image: xenolinhhv/student-performance-prediction:b4931dacf3e38499bbc76b0f5563aba27c654925
           ports:
             - containerPort: 8000
           env:
